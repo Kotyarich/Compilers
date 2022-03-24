@@ -29,6 +29,28 @@ func (s *IntSet) Unite(o IntSet) IntSet {
 	return newSet
 }
 
+func (s *IntSet) Subtract(o IntSet) IntSet {
+	var newSet IntSet
+
+	for _, v := range *s {
+		if !o.Contains(v) {
+			newSet.Add(v)
+		}
+	}
+
+	return newSet
+}
+
+func (s *IntSet) Intersect(o IntSet) IntSet {
+	var newSet IntSet
+	for _, v := range *s {
+		if o.Contains(v) {
+			newSet.Add(v)
+		}
+	}
+	return newSet
+}
+
 func (s *IntSet) Equals(o IntSet) bool {
 	s1 := s.Unite(o)
 	s2 := o.Unite(*s)

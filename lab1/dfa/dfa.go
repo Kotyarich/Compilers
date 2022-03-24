@@ -1,13 +1,15 @@
 package dfa
 
-import "cc/lab/set"
+import (
+	"cc/lab/set"
+)
 
-type DFA struct {
-	Q  []*state
-	T  set.ByteSet
-	D  []tran
-	Q0 set.IntSet
-	F  []set.IntSet
+type tempDFA struct {
+	q []*state
+	t  set.ByteSet
+	d  []tran
+	q0 set.IntSet
+	f  []set.IntSet
 }
 
 type tran struct {
@@ -21,8 +23,27 @@ type state struct {
 	marked bool
 }
 
-func (dfa *DFA) hasUnmarked() bool {
-	for _, s := range dfa.Q {
+func toTreeMap(t *tree) map[int]*tree {
+	m := make(map[int]*tree)
+	m[t.Pos] = t
+
+	for _, c := range t.Children {
+		treeMapRec(c, m)
+	}
+
+	return m
+}
+
+func treeMapRec(t *tree, m map[int]*tree) {
+	m[t.Pos] = t
+
+	for _, c := range t.Children {
+		treeMapRec(c, m)
+	}
+}
+
+func (dfa *tempDFA) hasUnmarked() bool {
+	for _, s := range dfa.q {
 		if !s.marked {
 			return true
 		}
@@ -31,8 +52,8 @@ func (dfa *DFA) hasUnmarked() bool {
 	return false
 }
 
-func (dfa *DFA) getUnmarkedPos() int {
-	for i, s := range dfa.Q {
+func (dfa *tempDFA) getUnmarkedPos() int {
+	for i, s := range dfa.q {
 		if !s.marked {
 			return i
 		}
@@ -50,17 +71,17 @@ func isSymbol(s byte) bool {
 	return false
 }
 
-func (dfa *DFA) getAlphabet(re string) {
+func (dfa *tempDFA) getAlphabet(re string) {
 	for _, c := range re {
 		if isSymbol(byte(c)) {
-			dfa.T.Add(byte(c))
+			dfa.t.Add(byte(c))
 		}
 	}
 }
 
-func (dfa *DFA) hasState(s set.IntSet) bool {
-	for i := range dfa.Q {
-		if dfa.Q[i].value.Equals(s) {
+func (dfa *tempDFA) hasState(s set.IntSet) bool {
+	for i := range dfa.q {
+		if dfa.q[i].value.Equals(s) {
 			return true
 		}
 	}
@@ -68,28 +89,28 @@ func (dfa *DFA) hasState(s set.IntSet) bool {
 	return false
 }
 
-func (dfa *DFA) buildF(endPos int) {
-	for _, s := range dfa.Q {
+func (dfa *tempDFA) buildF(endPos int) {
+	for _, s := range dfa.q {
 		if s.value.Contains(endPos) {
-			dfa.F = append(dfa.F, s.value)
+			dfa.f = append(dfa.f, s.value)
 		}
 	}
 }
 
-func BuildDFA(t *tree, re string, followPos map[int]set.IntSet) DFA {
-	var dfa DFA
+func BuildDFA(t *tree, re string, followPos map[int]set.IntSet) tempDFA {
+	var dfa tempDFA
 	dfa.getAlphabet(re)
 
 	treeMap := toTreeMap(t)
 
-	dfa.Q0 = t.FirstPos
-	dfa.Q = append(dfa.Q, &state{dfa.Q0, false})
+	dfa.q0 = t.FirstPos
+	dfa.q = append(dfa.q, &state{dfa.q0, false})
 
 	for dfa.hasUnmarked() {
-		R := dfa.Q[dfa.getUnmarkedPos()]
+		R := dfa.q[dfa.getUnmarkedPos()]
 		R.marked = true
 
-		for _, symbol := range dfa.T {
+		for _, symbol := range dfa.t {
 			var u set.IntSet
 			for _, p := range R.value.ToArray() {
 				if treeMap[p].Value[0] == symbol {
@@ -98,9 +119,9 @@ func BuildDFA(t *tree, re string, followPos map[int]set.IntSet) DFA {
 			}
 
 			if !dfa.hasState(u) {
-				dfa.Q = append(dfa.Q, &state{u, false})
+				dfa.q = append(dfa.q, &state{u, false})
 			}
-			dfa.D = append(dfa.D, tran{R.value, symbol, u})
+			dfa.d = append(dfa.d, tran{R.value, symbol, u})
 		}
 	}
 
