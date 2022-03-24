@@ -1,12 +1,17 @@
 package main
 
 import (
-	"cc/lab/dka"
+	"cc/lab/dfa"
 	"fmt"
 )
 
 func main() {
-	re := "(a|b).a.#"
-	tree := dka.ToTree(re)
-	fmt.Println(tree)
+	re := "(a|b)*.a.b.b"
+	re = re + ".#"
+
+	tree := dfa.REToTree(re)
+	m := dfa.PrepareTree(tree)
+	DFA := dfa.BuildDFA(tree, re, m)
+
+	fmt.Println(DFA)
 }
