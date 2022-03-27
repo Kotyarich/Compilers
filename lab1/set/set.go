@@ -41,14 +41,8 @@ func (s *IntSet) Subtract(o IntSet) IntSet {
 	return newSet
 }
 
-func (s *IntSet) Intersect(o IntSet) IntSet {
-	var newSet IntSet
-	for _, v := range *s {
-		if o.Contains(v) {
-			newSet.Add(v)
-		}
-	}
-	return newSet
+func (s *IntSet) Size() int {
+	return len(*s)
 }
 
 func (s *IntSet) Equals(o IntSet) bool {
@@ -81,21 +75,4 @@ func (s *ByteSet) Add(value byte) {
 	}
 
 	*s = append(*s, value)
-}
-
-func (s *ByteSet) ToArray() []byte {
-	return *s
-}
-
-func (s *ByteSet) Unite(o ByteSet) ByteSet {
-	var newSet ByteSet
-
-	for _, v := range *s {
-		newSet.Add(v)
-	}
-	for _, v := range o.ToArray() {
-		newSet.Add(v)
-	}
-
-	return newSet
 }

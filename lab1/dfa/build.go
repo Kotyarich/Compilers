@@ -97,7 +97,7 @@ func (dfa *tempDFA) buildF(endPos int) {
 	}
 }
 
-func BuildDFA(t *tree, re string, followPos map[int]set.IntSet) tempDFA {
+func BuildDFA(t *tree, re string, followPos map[int]set.IntSet) MinDFA {
 	var dfa tempDFA
 	dfa.getAlphabet(re)
 
@@ -127,5 +127,5 @@ func BuildDFA(t *tree, re string, followPos map[int]set.IntSet) tempDFA {
 
 	dfa.buildF(t.Children[1].Pos)
 
-	return dfa
+	return toMinDFA(dfa)
 }

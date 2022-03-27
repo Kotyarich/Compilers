@@ -12,8 +12,7 @@ func main() {
 	tree := dfa.REToTree(re)
 	m := dfa.PrepareTree(tree)
 	DFA := dfa.BuildDFA(tree, re, m)
-	minDFA := dfa.ToMinDFA(DFA)
-	minStates := dfa.Minimise(minDFA)
+	minStates := dfa.MinimiseOptimal(DFA)
 	
 	fmt.Println(minStates)
 }

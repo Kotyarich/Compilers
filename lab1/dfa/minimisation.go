@@ -1,6 +1,7 @@
 package dfa
 
 import (
+	"cc/lab/queue"
 	"cc/lab/set"
 )
 
@@ -18,11 +19,14 @@ type Tran struct {
 	To     int
 }
 
-func ToMinDFA(dfa tempDFA) MinDFA {
+// При построении ДКА каждое состояние является множеством номеров
+// листьев в синтаксическом дереве регулярки, перехождим к формату ДКА,
+// в котором каждое состояние - уникальное число
+func toMinDFA(dfa tempDFA) MinDFA {
 	result := MinDFA{t: dfa.t}
 
 	stateMap := make(map[*state]int)
-
+	// Маппинг состояний
 	curState := 0
 	for _, q := range dfa.q {
 		if _, ok := stateMap[q]; !ok {
@@ -35,7 +39,7 @@ func ToMinDFA(dfa tempDFA) MinDFA {
 			result.q0 = stateMap[q]
 		}
 	}
-
+	// Маппинг конечных состояний
 	for _, f := range dfa.f {
 		for k, v := range stateMap {
 			if k.value.Equals(f) {
@@ -43,7 +47,7 @@ func ToMinDFA(dfa tempDFA) MinDFA {
 			}
 		}
 	}
-
+	// Маппинг переходов
 	for _, t := range dfa.d {
 		founds := 0
 		tran := Tran{Symbol: t.symbol}
@@ -66,61 +70,104 @@ func ToMinDFA(dfa tempDFA) MinDFA {
 	return result
 }
 
-func Minimise(dfa MinDFA) []set.IntSet {
+func swapState(P []set.IntSet, state int, from int, to int) []set.IntSet {
+	for i, v := range P[from] {
+		if v == state {
+			P[from] = append(P[from][:i], P[from][i+1:]...)
+			break
+		}
+	}
+
+	P[to] = append(P[to], state)
+	return P
+}
+
+func mapClasses(P []set.IntSet) map[int]int {
+	stateClass := make(map[int]int)
+
+	for classIndex, _ := range P {
+		for _, v := range P[classIndex] {
+			stateClass[v] = classIndex
+		}
+	}
+
+	return stateClass
+}
+
+func mapTransicions(trans []Tran) map[byte]map[int]*set.IntSet {
+	inv := make(map[byte]map[int]*set.IntSet)
+
+	for _, t := range trans {
+		if _, ok := inv[t.Symbol]; !ok {
+			inv[t.Symbol] = make(map[int]*set.IntSet)
+		}
+		if _, ok := inv[t.Symbol][t.To]; !ok {
+			inv[t.Symbol][t.To] = &set.IntSet{}
+		}
+		inv[t.Symbol][t.To].Add(t.From)
+	}
+
+	return inv
+}
+
+func MinimiseOptimal(dfa MinDFA) []set.IntSet {
 	P := []set.IntSet{dfa.f, dfa.q.Subtract(dfa.f)}
-	W := []set.IntSet{dfa.f, dfa.q.Subtract(dfa.f)}
 
-	for len(W) > 0 {
-		A := W[0]
-		W = W[1:]
+	stateClass := mapClasses(P)
+	inv := mapTransicions(dfa.d)
 
-		for _, c := range dfa.t {
-			// let X be the set of states for which a transition on c leads to a state in A
-			var X set.IntSet
-			for _, t := range dfa.d {
-				if t.Symbol == c && A.Contains(t.To) {
-					X = append(X, t.From)
-				}
+	charQueue := queue.Queue{}
+	setQueue := queue.Queue{}
+
+	for _, c := range dfa.t {
+		charQueue.Push(c)
+		charQueue.Push(c)
+		setQueue.Push(dfa.f)
+		setQueue.Push(dfa.q.Subtract(dfa.f))
+	}
+
+	for !charQueue.Empty() {
+		C := setQueue.Pop().(set.IntSet)
+		a := charQueue.Pop().(byte)
+
+		involved := make(map[int]*set.IntSet, 0)
+		for _, q := range C {
+			rs, ok := inv[a][q]
+			if !ok {
+				continue
 			}
 
-			// for each set Y in P for which X ∩ Y is nonempty and Y \ X is nonempty
-			newP := make([]set.IntSet, 0, cap(P))
-			for _, Y := range P {
-				intersection := X.Intersect(Y)
-				if len(intersection) == 0 {
-					newP = append(newP, Y)
-					continue
+			for _, r := range *rs {
+				i := stateClass[r]
+				if _, ok := involved[i]; !ok {
+					involved[i] = &set.IntSet{}
+				}
+				involved[i].Add(r)
+			}
+		}
+
+		for i := range involved {
+			if involved[i].Size() < len(P[i]) {
+				P = append(P, set.IntSet{})
+				j := len(P) - 1
+
+				for _, r := range *involved[i] {
+					P = swapState(P, r, i, j)
 				}
 
-				subtraction := Y.Subtract(X)
-				if len(subtraction) == 0 {
-					newP = append(newP, Y)
-					continue
+				if len(P[j]) > len(P[i]) {
+					P[j], P[i] = P[i], P[j]
 				}
 
-				// replace Y in P by the two sets X ∩ Y and Y \ X
-				newP = append(newP, intersection, subtraction)
-
-				// if Y is in W replace by the same two sets
-				foundY := false
-				for i, sets := range W {
-					if sets.Equals(Y) {
-						foundY = true
-						W[i] = intersection
-						W = append(W, subtraction)
-						break
-					}
+				for _, r := range P[j] {
+					stateClass[r] = j
 				}
 
-				if !foundY {
-					if len(intersection) <= len(subtraction) {
-						W = append(W, intersection)
-					} else {
-						W = append(W, subtraction)
-					}
+				for _, c := range dfa.t {
+					charQueue.Push(c)
+					setQueue.Push(P[j])
 				}
 			}
-			P = newP
 		}
 	}
 

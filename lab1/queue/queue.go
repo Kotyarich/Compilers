@@ -14,10 +14,6 @@ func (s *Queue) Pop() interface{} {
 	return value
 }
 
-func (s *Queue) Top() interface{} {
-	return s.arr[0]
-}
-
 func (s *Queue) Empty() bool {
 	return len(s.arr) == 0
 }
