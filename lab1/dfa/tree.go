@@ -57,7 +57,7 @@ func hangUp(st1 *stack2.Stack, st2 *stack2.Stack, curPos int) {
 	st2.Push(p)
 }
 
-func REToTree(expr string) *tree {
+func reToTree(expr string) *tree {
 	curPos := 0
 
 	st1 := stack2.Stack{}
@@ -97,15 +97,15 @@ func REToTree(expr string) *tree {
 	return st2.Top().(*tree)
 }
 
-func PrepareTree(t *tree) map[int]set.IntSet {
+func prepareTree(t *tree) map[int]set.IntSet {
 	m := make(map[int]set.IntSet)
-	prepareTree(t, m)
+	prepareTreeRecursive(t, m)
 	return m
 }
 
-func prepareTree(t *tree, m map[int]set.IntSet) {
+func prepareTreeRecursive(t *tree, m map[int]set.IntSet) {
 	for _, child := range t.Children {
-		prepareTree(child, m)
+		prepareTreeRecursive(child, m)
 	}
 
 	t.Nullable = nullable(t)

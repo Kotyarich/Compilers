@@ -2,6 +2,8 @@ package dfa
 
 import (
 	"cc/lab/set"
+	"fmt"
+	"strings"
 )
 
 type tempDFA struct {
@@ -97,7 +99,7 @@ func (dfa *tempDFA) buildF(endPos int) {
 	}
 }
 
-func BuildDFA(t *tree, re string, followPos map[int]set.IntSet) MinDFA {
+func buildDFA(t *tree, re string, followPos map[int]set.IntSet) MinDFA {
 	var dfa tempDFA
 	dfa.getAlphabet(re)
 
@@ -112,7 +114,7 @@ func BuildDFA(t *tree, re string, followPos map[int]set.IntSet) MinDFA {
 
 		for _, symbol := range dfa.t {
 			var u set.IntSet
-			for _, p := range R.value.ToArray() {
+			for _, p := range R.value {
 				if treeMap[p].Value[0] == symbol {
 					u = u.Unite(followPos[p])
 				}
@@ -128,4 +130,45 @@ func BuildDFA(t *tree, re string, followPos map[int]set.IntSet) MinDFA {
 	dfa.buildF(t.Children[1].Pos)
 
 	return toMinDFA(dfa)
+}
+
+
+func preProcessRE(re string) string {
+	builder := strings.Builder{}
+	builder.WriteString("(")
+
+	for i := 0; i < len(re) - 1; i++ {
+		builder.WriteByte(re[i])
+		if !isBinaryOperation(re[i]) && re[i] != openBracket &&
+			!isBinaryOperation(re[i + 1]) && re[i + 1] != closeBracket && !isUnaryOperation(re[i + 1]) {
+			builder.WriteByte('.')
+		}
+	}
+
+	builder.WriteByte(re[len(re) - 1])
+	builder.WriteString(").#")
+
+	return builder.String()
+}
+
+func Build(re string, withPrint bool) MinDFA {
+	re = preProcessRE(re)
+
+	tree := reToTree(re)
+	m := prepareTree(tree)
+	DFA := buildDFA(tree, re, m)
+
+	if withPrint {
+		fmt.Println("ДКА, полученный из регулярного выражения:")
+		DFA.printConfiguration()
+	}
+
+	MinimiseOptimal(&DFA)
+
+	if withPrint {
+		fmt.Println("Минимизированный ДКА:")
+		DFA.printConfiguration()
+	}
+
+	return DFA
 }

@@ -9,8 +9,8 @@ type MinDFA struct {
 	q  set.IntSet
 	f  set.IntSet
 	q0 int
-	t set.ByteSet
-	d []Tran
+	t  set.ByteSet
+	d  []Tran
 }
 
 type Tran struct {
@@ -37,6 +37,12 @@ func toMinDFA(dfa tempDFA) MinDFA {
 
 		if q.value.Equals(dfa.q0) {
 			result.q0 = stateMap[q]
+		}
+	}
+	// Маппинг q0
+	for k, v := range stateMap {
+		if k.value.Equals(dfa.q0) {
+			result.q0 = v
 		}
 	}
 	// Маппинг конечных состояний
@@ -94,7 +100,7 @@ func mapClasses(P []set.IntSet) map[int]int {
 	return stateClass
 }
 
-func mapTransicions(trans []Tran) map[byte]map[int]*set.IntSet {
+func mapTrans(trans []Tran) map[byte]map[int]*set.IntSet {
 	inv := make(map[byte]map[int]*set.IntSet)
 
 	for _, t := range trans {
@@ -110,11 +116,60 @@ func mapTransicions(trans []Tran) map[byte]map[int]*set.IntSet {
 	return inv
 }
 
-func MinimiseOptimal(dfa MinDFA) []set.IntSet {
+func (dfa *MinDFA) mapOptimalStates(P []set.IntSet) {
+	stateMap := make(map[int]int)
+
+	// Маппинг состояний
+	newQ := make([]int, 0, len(P))
+	for i, q := range P {
+		for _, state := range q {
+			stateMap[state] = i
+		}
+		newQ = append(newQ, i)
+	}
+
+	// Маппинг конечных состояний
+	resultF := set.IntSet{}
+	for _, f := range dfa.f {
+		for k, v := range stateMap {
+			if k == f {
+				resultF.Add(v)
+			}
+		}
+	}
+
+	// Маппинг переходов
+	resultTrans := make([]Tran, 0)
+	for _, t := range dfa.d {
+		founds := 0
+		tran := Tran{Symbol: t.Symbol}
+		for k, v := range stateMap {
+			if k == t.From {
+				tran.From = v
+				founds++
+			}
+			if k == t.To {
+				tran.To = v
+				founds++
+			}
+			if founds == 2 {
+				break
+			}
+		}
+		resultTrans = append(resultTrans, tran)
+	}
+
+	dfa.q0 = stateMap[dfa.q0]
+	dfa.q = newQ
+	dfa.f = resultF
+	dfa.d = resultTrans
+}
+
+func MinimiseOptimal(dfa *MinDFA) {
 	P := []set.IntSet{dfa.f, dfa.q.Subtract(dfa.f)}
 
 	stateClass := mapClasses(P)
-	inv := mapTransicions(dfa.d)
+	inv := mapTrans(dfa.d)
 
 	charQueue := queue.Queue{}
 	setQueue := queue.Queue{}
@@ -171,5 +226,5 @@ func MinimiseOptimal(dfa MinDFA) []set.IntSet {
 		}
 	}
 
-	return P
+	dfa.mapOptimalStates(P)
 }
