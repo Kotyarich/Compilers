@@ -1,0 +1,16 @@
+n <> (n - n)$
+c       s
+        $
+n       $n
+<>      $E          E1:n
+<>      $E<>
+(       $E<>(
+n       $E<>(n
+-       $E<>(E      E1:n      E2:n
+-       $E<>(E-
+n       $E<>(E-n
+)       $E<>(E-E    E1:n      E2:n      E3:n
+)       $E<>(E      E1:n      E2: n n -
+)       $E<>(E)     E1:n      E2: n n -
+$       $E<>E       E1: n n n - <>
+$       $E
