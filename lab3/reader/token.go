@@ -9,7 +9,7 @@ func init() {
 		"<список операторов>": true,
 		"<хвост>": true,
 		"<оператор>": true,
-		"<идентификатор>": false,
+		"id": false,
 		"<выражение>": true,
 		"<арифметическое выражение>": true,
 		"<терм>": true,
@@ -17,7 +17,7 @@ func init() {
 		"<множитель>": true,
 		"<знак операции типа умножения>": true,
 		"<первичное выражение>": true,
-		"<число>": false,
+		"number": false,
 		"<знак операции отношения>": true,
 		"+": false,
 		"-": false,
@@ -39,7 +39,21 @@ func init() {
 	}
 }
 
-func isToken(s string) bool {
+func (reader *FileReader) isToken(s string) bool {
+	if s == "<" || s == ">" {
+		b := make([]byte, 1)
+		_, _ = reader.file.Read(b)
+
+		newS := s + string(b)
+
+		_, ok := tokens[newS]
+		if ok {
+			return ok
+		}
+
+		reader.UnreadToken(" ")
+	}
+
 	_, ok := tokens[s]
 	return ok
 }

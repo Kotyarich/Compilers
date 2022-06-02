@@ -2,14 +2,18 @@ package reader
 
 import (
 	"bufio"
+	"io"
 	"log"
 	"os"
 	"strings"
 )
 
 type FileReader struct {
-	file    *os.File
-	scanner *bufio.Reader
+	file        *os.File
+	scanner     *bufio.Reader
+	curLine     int64
+	curPos      int64
+	curTokenLen int64
 }
 
 func NewFileReader(fileName string) *FileReader {
@@ -28,42 +32,67 @@ func (reader *FileReader) NextToken() (string, bool) {
 	reader.skipSpaces()
 
 	builder := strings.Builder{}
-
+	buf := make([]byte, 1)
 	for {
-		b, err := reader.scanner.ReadByte()
-		if err == bufio.ErrFinalToken {
+		reader.curPos++
+		reader.curTokenLen++
+		_, err := reader.file.Read(buf)
+		b := buf[0]
+		if err != nil {
 			_ = reader.file.Close()
 			return "", false
 		}
 
 		builder.WriteByte(b)
 
-		if isToken(builder.String()) {
+		if reader.isToken(builder.String()) {
 			break
 		}
 	}
 
+	reader.curTokenLen = 0
 	return builder.String(), true
 }
 
 func (reader *FileReader) UnreadToken(token string) {
-	for range token {
-		_ = reader.scanner.UnreadByte()
-	}
+	l := int64(len(token))
+	reader.curPos -= l
+	_, _ = reader.file.Seek(-l, 1)
 }
 
 func (reader *FileReader) skipSpaces() {
+	buf := make([]byte, 1)
 	for {
-		b, err := reader.scanner.ReadByte()
-		if err == bufio.ErrFinalToken {
+		_, err := reader.file.Read(buf)
+		b := buf[0]
+		if err == io.EOF {
 			return
 		}
 
-		if b == ' ' || b == '\n' {
+		if b == ' ' {
+			reader.curPos++
 			continue
 		}
-		_ = reader.scanner.UnreadByte()
+
+		if b == 13 {
+			reader.curLine++
+			reader.curPos = 0
+			continue
+		}
+
+		if b == 10 {
+			continue
+		}
+		_, _ = reader.file.Seek(-1, 1)
+
 		break
 	}
 }
 
+func (reader *FileReader) CurPose() (int64, int64) {
+	curPos := reader.curPos - reader.curTokenLen
+	if curPos < 0 {
+		curPos = 0
+	}
+	return reader.curLine + 1, curPos
+}

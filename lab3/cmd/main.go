@@ -17,6 +17,11 @@ func main() {
 
 	r := reader.NewFileReader(fileName)
 	a := analyser.NewAnalyser(r)
+
 	err := a.Parse()
-	fmt.Println(err.Error())
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err.Error())
+	} else {
+		fmt.Println("OK")
+	}
 }

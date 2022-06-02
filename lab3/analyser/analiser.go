@@ -1,6 +1,8 @@
 package analyser
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Analyser struct {
 	reader reader
@@ -21,7 +23,7 @@ func (a *Analyser) program() error {
 func (a *Analyser) block() error {
 	next, ok := a.reader.NextToken()
 	if !ok || next != "{" {
-		return fmt.Errorf("'{' was expected")
+		return a.makeError("'{' was expected")
 	}
 
 	if err := a.operatorsList(); err != nil {
@@ -30,7 +32,7 @@ func (a *Analyser) block() error {
 
 	next, ok = a.reader.NextToken()
 	if !ok || next != "}" {
-		return fmt.Errorf("'}' was expected")
+		return a.makeError("'}' was expected")
 	}
 
 	return nil
@@ -46,6 +48,7 @@ func (a *Analyser) operatorsList() error {
 		a.reader.UnreadToken(next)
 		return a.tail()
 	}
+	a.reader.UnreadToken(next)
 
 	return nil
 }
@@ -53,16 +56,18 @@ func (a *Analyser) operatorsList() error {
 func (a *Analyser) tail() error {
 	next, ok := a.reader.NextToken()
 	if !ok || next != ";" {
-		return fmt.Errorf("';' was expected")
+		a.reader.UnreadToken(next)
+		return a.makeError("';' was expected")
 	}
 
 	if err := a.operator(); err != nil {
+		a.reader.UnreadToken(next)
 		return err
 	}
 
-	next, ok = a.reader.NextToken()
-	if ok && next == ";" {
-		a.reader.UnreadToken(next)
+	closeNext, ok := a.reader.NextToken()
+	a.reader.UnreadToken(next)
+	if ok && closeNext == ";" {
 		return a.tail()
 	}
 
@@ -72,15 +77,22 @@ func (a *Analyser) tail() error {
 func (a *Analyser) operator() error {
 	next, ok := a.reader.NextToken()
 	if !ok || next != "id" {
-		return fmt.Errorf("id was expected")
+		a.reader.UnreadToken(next)
+		return a.makeError("id was expected")
 	}
 
-	next, ok = a.reader.NextToken()
-	if !ok || next != "=" {
-		return fmt.Errorf("'=' was expected")
+	closeNext, ok := a.reader.NextToken()
+	if !ok || closeNext != "=" {
+		a.reader.UnreadToken(next)
+		a.reader.UnreadToken(closeNext)
+		return a.makeError("'=' was expected")
 	}
 
-	return a.expression()
+	err := a.expression()
+	if err != nil {
+		a.reader.UnreadToken(next)
+	}
+	return err
 }
 
 func (a *Analyser) expression() error {
@@ -126,7 +138,7 @@ func (a *Analyser) compareSign() error {
 	next, ok := a.reader.NextToken()
 	if !ok || (next != "<" && next != "<=" && next != "=" && next != ">=" && next != ">" && next != "<>") {
 		a.reader.UnreadToken(next)
-		return fmt.Errorf("compare sign was expected")
+		return a.makeError("compare sign was expected")
 	}
 
 	return nil
@@ -158,7 +170,7 @@ func (a *Analyser) sumSign() error {
 	next, ok := a.reader.NextToken()
 	if !ok || (next != "+" && next != "-") {
 		a.reader.UnreadToken(next)
-		return fmt.Errorf("'+' or '-' were expected")
+		return a.makeError("'+' or '-' were expected")
 	}
 
 	return nil
@@ -177,10 +189,11 @@ func (a *Analyser) multiplier2() error {
 	next, ok := a.reader.NextToken()
 	if !ok || next != "^" {
 		a.reader.UnreadToken(next)
-		return fmt.Errorf("'^' was expected")
+		return a.makeError("'^' was expected")
 	}
 
 	if err := a.primaryExpression(); err != nil {
+		a.reader.UnreadToken(next)
 		return err
 	}
 
@@ -192,7 +205,7 @@ func (a *Analyser) multiplicationSign() error {
 	next, ok := a.reader.NextToken()
 	if !ok || (next != "*" && next != "/" && next != "%") {
 		a.reader.UnreadToken(next)
-		return fmt.Errorf("multiplication sign was expected")
+		return a.makeError("multiplication sign was expected")
 	}
 
 	return nil
@@ -202,7 +215,7 @@ func (a *Analyser) primaryExpression() error {
 	next, ok := a.reader.NextToken()
 	if !ok {
 		a.reader.UnreadToken(next)
-		return fmt.Errorf("primary expression was expected")
+		return a.makeError("primary expression was expected")
 	}
 
 	switch next {
@@ -212,17 +225,24 @@ func (a *Analyser) primaryExpression() error {
 		return nil
 	case "(":
 		if err := a.arithmeticExpression(); err != nil {
+			a.reader.UnreadToken(next)
 			return err
 		}
 		closeNext, ok := a.reader.NextToken()
 		if !ok || closeNext != ")" {
 			a.reader.UnreadToken(closeNext)
 			a.reader.UnreadToken(next)
-			return fmt.Errorf("')' was expected")
+			return a.makeError("')' was expected")
 		}
 
 		return nil
 	}
 
-	return fmt.Errorf("primary expression was expected")
+	a.reader.UnreadToken(next)
+	return a.makeError("primary expression was expected")
+}
+
+func (a *Analyser) makeError(message string) error {
+	line, pos := a.reader.CurPose()
+	return fmt.Errorf("%d: %d - %s", line, pos, message)
 }
